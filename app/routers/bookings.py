@@ -2,7 +2,7 @@ from uuid import UUID
 from typing import List
 from datetime import date as date_type, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -55,7 +55,15 @@ def list_slots(
 # Booking
 # ---------------------------------------------------------------------------
 @router.post("/book", response_model=BookingResponse, status_code=201)
-def create_booking(payload: BookingCreate, db: Session = Depends(get_db)):
+def create_booking(
+    payload: BookingCreate, 
+    db: Session = Depends(get_db),
+    background_tasks: BackgroundTasks = BackgroundTasks()
+):
+    """
+    Create booking and send confirmation email in background.
+    Returns immediately with booking data - email sends asynchronously.
+    """
     event = db.query(EventType).filter(EventType.id == payload.event_type_id).first()
     if not event:
         raise HTTPException(404, "Event type not found")
@@ -96,19 +104,19 @@ def create_booking(payload: BookingCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(booking)
 
-    # Send email (non-blocking)
-    try:
-        send_booking_confirmation(
-            invitee_email=booking.invitee_email,
-            invitee_name=booking.invitee_name,
-            event_name=event.name,
-            booking_date=booking.date,
-            start_time=booking.start_time,
-            end_time=booking.end_time,
-        )
-    except Exception:
-        pass
+    # 🔥 CRITICAL: Send email in BACKGROUND (don't wait, don't crash response)
+    background_tasks.add_task(
+        send_booking_confirmation,
+        invitee_email=booking.invitee_email,
+        invitee_name=booking.invitee_name,
+        event_name=event.name,
+        booking_date=booking.date,
+        start_time=booking.start_time,
+        end_time=booking.end_time,
+    )
 
+    # ✅ Return booking data IMMEDIATELY
+    # Confirmation page shows right away, email sends in background
     return booking
 
 
@@ -116,7 +124,11 @@ def create_booking(payload: BookingCreate, db: Session = Depends(get_db)):
 # Cancel
 # ---------------------------------------------------------------------------
 @router.post("/cancel/{booking_id}", response_model=BookingResponse)
-def cancel_booking(booking_id: UUID, db: Session = Depends(get_db)):
+def cancel_booking(
+    booking_id: UUID, 
+    db: Session = Depends(get_db),
+    background_tasks: BackgroundTasks = BackgroundTasks()
+):
     booking = db.query(Booking).filter(Booking.id == booking_id).first()
     if not booking:
         raise HTTPException(404, "Booking not found")
@@ -128,16 +140,16 @@ def cancel_booking(booking_id: UUID, db: Session = Depends(get_db)):
     db.refresh(booking)
 
     event = db.query(EventType).filter(EventType.id == booking.event_type_id).first()
-    try:
-        send_cancellation_notice(
-            invitee_email=booking.invitee_email,
-            invitee_name=booking.invitee_name,
-            event_name=event.name if event else "Meeting",
-            booking_date=booking.date,
-            start_time=booking.start_time,
-        )
-    except Exception:
-        pass
+    
+    # Send email in background
+    background_tasks.add_task(
+        send_cancellation_notice,
+        invitee_email=booking.invitee_email,
+        invitee_name=booking.invitee_name,
+        event_name=event.name if event else "Meeting",
+        booking_date=booking.date,
+        start_time=booking.start_time,
+    )
 
     return booking
 
@@ -150,6 +162,7 @@ def reschedule_booking(
     booking_id: UUID,
     payload: RescheduleRequest,
     db: Session = Depends(get_db),
+    background_tasks: BackgroundTasks = BackgroundTasks()
 ):
     old_booking = db.query(Booking).filter(Booking.id == booking_id).first()
     if not old_booking:
@@ -194,19 +207,18 @@ def reschedule_booking(
     db.commit()
     db.refresh(new_booking)
 
-    try:
-        send_reschedule_notice(
-            invitee_email=new_booking.invitee_email,
-            invitee_name=new_booking.invitee_name,
-            event_name=event.name,
-            old_date=old_booking.date,
-            old_time=old_booking.start_time,
-            new_date=new_booking.date,
-            new_start=new_booking.start_time,
-            new_end=new_booking.end_time,
-        )
-    except Exception:
-        pass
+    # Send email in background
+    background_tasks.add_task(
+        send_reschedule_notice,
+        invitee_email=new_booking.invitee_email,
+        invitee_name=new_booking.invitee_name,
+        event_name=event.name,
+        old_date=old_booking.date,
+        old_time=old_booking.start_time,
+        new_date=new_booking.date,
+        new_start=new_booking.start_time,
+        new_end=new_booking.end_time,
+    )
 
     return new_booking
 
