@@ -68,15 +68,17 @@ body {
 }
 
 /* ============================================================
-   Layout
+   Layout - FIXED FOR SIDEBAR OVERLAP
    ============================================================ */
 .app-layout {
   display: flex;
   min-height: 100vh;
+  position: relative;
 }
 
 .sidebar {
   width: 260px;
+  height: 100vh;
   background: var(--color-sidebar);
   padding: 1.5rem 0;
   display: flex;
@@ -87,6 +89,7 @@ body {
   bottom: 0;
   z-index: 50;
   transition: transform var(--transition-base);
+  overflow-y: auto;
 }
 
 .sidebar-logo {
@@ -153,11 +156,32 @@ body {
   text-align: center;
 }
 
+.nav-label {
+  display: inline;
+}
+
+/* CRITICAL FIX: Main content has proper spacing */
 .main-content {
   flex: 1;
   margin-left: 260px;
+  width: calc(100% - 260px);
   padding: 2rem 2.5rem;
   min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.main-content-inner {
+  max-width: 100%;
+  width: 100%;
+}
+
+/* Mobile sidebar overlay */
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 40;
+  display: none;
 }
 
 .page-header {
@@ -187,6 +211,9 @@ body {
   padding: 1.25rem;
   box-shadow: var(--shadow-sm);
   transition: all var(--transition-base);
+  overflow: visible;
+  position: relative;
+  z-index: 1;
 }
 
 .card:hover {
@@ -530,23 +557,37 @@ body {
 }
 
 /* ============================================================
-   Responsive
+   Responsive - CRITICAL FIXES
    ============================================================ */
 @media (max-width: 768px) {
   .sidebar {
     transform: translateX(-100%);
     width: 240px;
   }
+  
   .sidebar.open {
     transform: translateX(0);
+    z-index: 60;
   }
+
+  .sidebar-overlay {
+    display: block;
+  }
+
+  .sidebar-overlay.active {
+    display: block;
+  }
+
   .main-content {
     margin-left: 0;
+    width: 100%;
     padding: 1rem;
   }
+  
   .card-grid {
     grid-template-columns: 1fr;
   }
+  
   .mobile-menu-btn {
     display: block !important;
   }
@@ -557,7 +598,7 @@ body {
   position: fixed;
   top: 0.75rem;
   left: 0.75rem;
-  z-index: 60;
+  z-index: 70;
   background: var(--color-sidebar);
   color: white;
   border: none;
@@ -565,6 +606,11 @@ body {
   padding: 0.5rem;
   font-size: 1.25rem;
   cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.mobile-menu-btn:hover {
+  background: var(--color-sidebar-hover);
 }
 
 /* Scrollbar */
@@ -575,6 +621,23 @@ body {
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--color-text-secondary); }
+
+.sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
 
 /* ============================================================
    Booking Page (public-facing)
@@ -697,7 +760,8 @@ body {
    ============================================================ */
 .event-card {
   position: relative;
-  overflow: hidden;
+  overflow: visible;
+  z-index: 1;
 }
 
 .event-card::before {
