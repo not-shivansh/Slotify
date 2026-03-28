@@ -60,28 +60,41 @@ export default function BookingPage() {
     } catch (err) { console.error(err) }
     setSlotsLoading(false)
   }
+  
+const handleBook = async (e) => {
+  e.preventDefault()
 
-  const handleBook = async (e) => {
-    e.preventDefault()
-    try {
-      const payload = {
-        event_type_id: event.id,
-        date: formatDateISO(selectedDate),
-        start_time: selectedSlot.start_time,
-        invitee_name: form.name,
-        invitee_email: form.email,
-        answers: questions.map(q => ({
-          question_id: q.id,
-          answer_text: answers[q.id] || '',
-        })).filter(a => a.answer_text),
-      }
-      const res = await api.post('/book', payload)
-      setBooking(res.data)
-      setStep('confirmed')
-    } catch (err) {
-      alert(err.response?.data?.detail || 'Booking failed. The slot may no longer be available.')
+  try {
+    const payload = {
+      event_type_id: event.id,
+      date: formatDateISO(selectedDate),
+      start_time: selectedSlot.start_time,
+      invitee_name: form.name,
+      invitee_email: form.email,
+      answers: questions.map(q => ({
+        question_id: q.id,
+        answer_text: answers[q.id] || '',
+      })).filter(a => a.answer_text),
     }
+
+    const res = await api.post('/book', payload)
+
+    console.log("BOOKING RESPONSE:", res.data)
+
+    if (!res.data) {
+      alert("Booking failed")
+      return
+    }
+
+    setBooking(res.data)
+    setStep('confirmed')
+
+  } catch (err) {
+    console.error(err)
+    alert(err.response?.data?.detail || "Booking failed")
   }
+}
+
 
   // Calendar helpers
   const formatDateISO = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
