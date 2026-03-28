@@ -61,6 +61,7 @@ export default function BookingPage() {
     setSlotsLoading(false)
   }
   
+
 const handleBook = async (e) => {
   e.preventDefault()
 
@@ -79,21 +80,38 @@ const handleBook = async (e) => {
 
     const res = await api.post('/book', payload)
 
-    console.log("BOOKING RESPONSE:", res.data)
-
-    if (!res.data) {
-      alert("Booking failed")
-      return
-    }
+    console.log("BOOKING SUCCESS:", res.data)
 
     setBooking(res.data)
     setStep('confirmed')
 
   } catch (err) {
-    console.error(err)
+    console.error("BOOKING ERROR:", err)
+
+    // 🔥 HANDLE PARTIAL SUCCESS (IMPORTANT)
+    if (err.response?.status === 500 || err.response?.status === 502) {
+      alert("Booking was successful, but email failed.")
+
+      // 🔥 STILL SHOW CONFIRMATION
+      setBooking({
+        invitee_email: form.email,
+        start_time: selectedSlot.start_time
+      })
+      setStep('confirmed')
+
+      return
+    }
+
+    if (err.response?.status === 409) {
+      alert("⚠️ This slot is already booked. Please choose another.")
+      loadSlots()
+      return
+    }
+
     alert(err.response?.data?.detail || "Booking failed")
   }
 }
+
 
 
   // Calendar helpers
