@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, Outlet } from 'react-router-dom'
 import { useState } from 'react'
 
 const navItems = [
@@ -11,22 +11,16 @@ const navItems = [
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  const handleNavClick = () => {
-    setSidebarOpen(false)
-  }
-
   return (
     <div className="app-layout">
       {/* Mobile menu button */}
       <button
         className="mobile-menu-btn"
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        aria-label="Toggle menu"
       >
         ☰
       </button>
 
-      {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-logo">
           <div className="logo-icon">S</div>
@@ -38,28 +32,17 @@ export default function Layout() {
               key={item.to}
               to={item.to}
               className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-              onClick={handleNavClick}
+              onClick={() => setSidebarOpen(false)}
             >
               <span className="nav-icon">{item.icon}</span>
-              <span className="nav-label">{item.label}</span>
+              {item.label}
             </NavLink>
           ))}
         </nav>
       </aside>
 
-      {/* Overlay for mobile when sidebar is open */}
-      {sidebarOpen && (
-        <div
-          className="sidebar-overlay"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Main Content */}
       <main className="main-content">
-        <div className="main-content-inner">
-          {/* Your page content goes here via Outlet */}
-        </div>
+        <Outlet />
       </main>
     </div>
   )
