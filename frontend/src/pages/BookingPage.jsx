@@ -63,7 +63,6 @@ export default function BookingPage() {
 
   const handleBook = async (e) => {
     e.preventDefault()
-
     try {
       const payload = {
         event_type_id: event.id,
@@ -76,38 +75,20 @@ export default function BookingPage() {
           answer_text: answers[q.id] || '',
         })).filter(a => a.answer_text),
       }
-
       const res = await api.post('/book', payload)
-
-      console.log("BOOKING SUCCESS:", res.data)
-
-      setBooking(res.data)
+      console.log('Booking response:', res.data)
+      
+      // Store booking data including slot info for confirmation
+      setBooking({
+        ...res.data,
+        start_time: selectedSlot.start_time,
+        end_time: selectedSlot.end_time,
+        booked_date: selectedDate
+      })
       setStep('confirmed')
-
     } catch (err) {
-      console.error("BOOKING ERROR:", err)
-
-      // 🔥 HANDLE PARTIAL SUCCESS (IMPORTANT)
-      if (err.response?.status === 500 || err.response?.status === 502) {
-        alert("Booking was successful, but email failed.")
-
-        // 🔥 STILL SHOW CONFIRMATION
-        setBooking({
-          invitee_email: form.email,
-          start_time: selectedSlot.start_time
-        })
-        setStep('confirmed')
-
-        return
-      }
-
-      if (err.response?.status === 409) {
-        alert("⚠️ This slot is already booked. Please choose another.")
-        loadSlots()
-        return
-      }
-
-      alert(err.response?.data?.detail || "Booking failed")
+      console.error('Booking error:', err)
+      alert(err.response?.data?.detail || 'Booking failed. The slot may no longer be available.')
     }
   }
 
@@ -144,6 +125,7 @@ export default function BookingPage() {
     a && b && a.getDate() === b.getDate() && a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear()
 
   const formatTime = (t) => {
+    if (!t) return ''
     const [h, m] = t.split(':')
     const hr = parseInt(h)
     return `${hr > 12 ? hr - 12 : hr || 12}:${m} ${hr >= 12 ? 'PM' : 'AM'}`
@@ -170,79 +152,77 @@ export default function BookingPage() {
   )
 
   // Confirmation step
-  if (step === 'confirmed') return (
-    <div className="booking-layout">
-      <div className="booking-card confirmation-card">
-        <div className="check-icon">✓</div>
-
-        <h2>You're booked!</h2>
-
-        <p className="text-muted mt-2">
-          A confirmation email has been sent to{" "}
-          <strong>{booking?.invitee_email || form.email}</strong>
-        </p>
-
-        <div className="card" style={{ marginTop: '1.5rem' }}>
-          <p><strong>{event?.name}</strong></p>
-
-          <p className="text-sm text-muted mt-1">
-            📅 {selectedDate?.toLocaleDateString()}
+  if (step === 'confirmed') {
+    return (
+      <div className="booking-layout">
+        <div className="booking-card confirmation-card">
+          <div className="check-icon">✓</div>
+          <h2>You're booked!</h2>
+          <p className="text-muted mt-2">
+            A confirmation email has been sent to <strong>{booking?.invitee_email}</strong>
           </p>
-
-          <p className="text-sm text-muted">
-            ⏰ {selectedSlot?.start_time}
-          </p>
+          <div className="card" style={{marginTop: '1.5rem', textAlign: 'left', display: 'inline-block', minWidth: 280}}>
+            <p><strong>{event?.name}</strong></p>
+            <p className="text-sm text-muted mt-1">
+              📅 {booking?.booked_date?.toLocaleDateString('en-US', {weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'})}
+            </p>
+            <p className="text-sm text-muted">
+              ⏰ {formatTime(booking?.start_time)} – {formatTime(booking?.end_time)}
+            </p>
+          </div>
         </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   // Form step
-  if (step === 'form') return (
-    <div className="booking-layout">
-      <div className="booking-card" style={{maxWidth: 520}}>
-        <div className="booking-header">
-          <button className="btn btn-ghost" onClick={() => setStep('calendar')} style={{marginBottom: '0.5rem'}}>← Back</button>
-          <h2>{event.name}</h2>
-          <p className="text-sm text-muted mt-1">
-            📅 {selectedDate?.toLocaleDateString('en-US', {weekday: 'long', month: 'long', day: 'numeric'})}
-            &nbsp; ⏰ {formatTime(selectedSlot.start_time)} – {formatTime(selectedSlot.end_time)}
-          </p>
-        </div>
-        <form onSubmit={handleBook} style={{padding: '1.5rem'}}>
-          <div className="form-group">
-            <label className="form-label">Name *</label>
-            <input className="form-input" required value={form.name}
-              onChange={e => setForm({...form, name: e.target.value})} placeholder="Your name" />
+  if (step === 'form') {
+    return (
+      <div className="booking-layout">
+        <div className="booking-card" style={{maxWidth: 520}}>
+          <div className="booking-header">
+            <button className="btn btn-ghost" onClick={() => setStep('calendar')} style={{marginBottom: '0.5rem'}}>← Back</button>
+            <h2>{event?.name}</h2>
+            <p className="text-sm text-muted mt-1">
+              📅 {selectedDate?.toLocaleDateString('en-US', {weekday: 'long', month: 'long', day: 'numeric'})}
+              &nbsp; ⏰ {formatTime(selectedSlot?.start_time)} – {formatTime(selectedSlot?.end_time)}
+            </p>
           </div>
-          <div className="form-group">
-            <label className="form-label">Email *</label>
-            <input className="form-input" type="email" required value={form.email}
-              onChange={e => setForm({...form, email: e.target.value})} placeholder="you@example.com" />
-          </div>
-          {questions.map(q => (
-            <div key={q.id} className="form-group">
-              <label className="form-label">{q.question_text} {q.is_required && '*'}</label>
-              <input className="form-input" required={q.is_required}
-                value={answers[q.id] || ''}
-                onChange={e => setAnswers({...answers, [q.id]: e.target.value})} />
+          <form onSubmit={handleBook} style={{padding: '1.5rem'}}>
+            <div className="form-group">
+              <label className="form-label">Name *</label>
+              <input className="form-input" required value={form.name}
+                onChange={e => setForm({...form, name: e.target.value})} placeholder="Your name" />
             </div>
-          ))}
-          <button type="submit" className="btn btn-primary" style={{width: '100%', marginTop: '0.5rem'}}>
-            Confirm Booking
-          </button>
-        </form>
+            <div className="form-group">
+              <label className="form-label">Email *</label>
+              <input className="form-input" type="email" required value={form.email}
+                onChange={e => setForm({...form, email: e.target.value})} placeholder="you@example.com" />
+            </div>
+            {questions.map(q => (
+              <div key={q.id} className="form-group">
+                <label className="form-label">{q.question_text} {q.is_required && '*'}</label>
+                <input className="form-input" required={q.is_required}
+                  value={answers[q.id] || ''}
+                  onChange={e => setAnswers({...answers, [q.id]: e.target.value})} />
+              </div>
+            ))}
+            <button type="submit" className="btn btn-primary" style={{width: '100%', marginTop: '0.5rem'}}>
+              Confirm Booking
+            </button>
+          </form>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   // Calendar + Slots view (default)
   return (
     <div className="booking-layout">
       <div className="booking-card">
         <div className="booking-header">
-          <h2>{event.name}</h2>
-          <p className="text-sm text-muted">⏱ {event.duration_minutes} minutes</p>
+          <h2>{event?.name}</h2>
+          <p className="text-sm text-muted">⏱ {event?.duration_minutes} minutes</p>
         </div>
         <div className="booking-body">
           <div className="booking-calendar-section">
@@ -257,7 +237,7 @@ export default function BookingPage() {
                 <button key={i}
                   className={`calendar-day ${!day ? 'other-month' : ''} ${day && isPast(day) ? 'disabled' : ''} ${day && isToday(day) ? 'today' : ''} ${day && isSameDay(day, selectedDate) ? 'selected' : ''}`}
                   disabled={!day || isPast(day)}
-                  onClick={() => { if (day && !isPast(day)) { setSelectedDate(day); setStep('calendar') } }}
+                  onClick={() => { if (day && !isPast(day)) { setSelectedDate(day) } }}
                 >
                   {day?.getDate()}
                 </button>
