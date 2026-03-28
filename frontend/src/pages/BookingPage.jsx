@@ -60,59 +60,56 @@ export default function BookingPage() {
     } catch (err) { console.error(err) }
     setSlotsLoading(false)
   }
-  
 
-const handleBook = async (e) => {
-  e.preventDefault()
+  const handleBook = async (e) => {
+    e.preventDefault()
 
-  try {
-    const payload = {
-      event_type_id: event.id,
-      date: formatDateISO(selectedDate),
-      start_time: selectedSlot.start_time,
-      invitee_name: form.name,
-      invitee_email: form.email,
-      answers: questions.map(q => ({
-        question_id: q.id,
-        answer_text: answers[q.id] || '',
-      })).filter(a => a.answer_text),
-    }
-
-    const res = await api.post('/book', payload)
-
-    console.log("BOOKING SUCCESS:", res.data)
-
-    setBooking(res.data)
-    setStep('confirmed')
-
-  } catch (err) {
-    console.error("BOOKING ERROR:", err)
-
-    // 🔥 HANDLE PARTIAL SUCCESS (IMPORTANT)
-    if (err.response?.status === 500 || err.response?.status === 502) {
-      alert("Booking was successful, but email failed.")
-
-      // 🔥 STILL SHOW CONFIRMATION
-      setBooking({
+    try {
+      const payload = {
+        event_type_id: event.id,
+        date: formatDateISO(selectedDate),
+        start_time: selectedSlot.start_time,
+        invitee_name: form.name,
         invitee_email: form.email,
-        start_time: selectedSlot.start_time
-      })
+        answers: questions.map(q => ({
+          question_id: q.id,
+          answer_text: answers[q.id] || '',
+        })).filter(a => a.answer_text),
+      }
+
+      const res = await api.post('/book', payload)
+
+      console.log("BOOKING SUCCESS:", res.data)
+
+      setBooking(res.data)
       setStep('confirmed')
 
-      return
-    }
+    } catch (err) {
+      console.error("BOOKING ERROR:", err)
 
-    if (err.response?.status === 409) {
-      alert("⚠️ This slot is already booked. Please choose another.")
-      loadSlots()
-      return
-    }
+      // 🔥 HANDLE PARTIAL SUCCESS (IMPORTANT)
+      if (err.response?.status === 500 || err.response?.status === 502) {
+        alert("Booking was successful, but email failed.")
 
-    alert(err.response?.data?.detail || "Booking failed")
+        // 🔥 STILL SHOW CONFIRMATION
+        setBooking({
+          invitee_email: form.email,
+          start_time: selectedSlot.start_time
+        })
+        setStep('confirmed')
+
+        return
+      }
+
+      if (err.response?.status === 409) {
+        alert("⚠️ This slot is already booked. Please choose another.")
+        loadSlots()
+        return
+      }
+
+      alert(err.response?.data?.detail || "Booking failed")
+    }
   }
-}
-
-
 
   // Calendar helpers
   const formatDateISO = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
@@ -155,7 +152,14 @@ const handleBook = async (e) => {
   const prevMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))
   const nextMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))
 
-  if (loading) return <div className="booking-layout"><div className="loading-spinner" /></div>
+  // Loading state
+  if (loading) return (
+    <div className="booking-layout">
+      <div className="loading-spinner" />
+    </div>
+  )
+
+  // Error state
   if (error) return (
     <div className="booking-layout">
       <div className="booking-card" style={{padding: '3rem', textAlign: 'center'}}>
@@ -165,21 +169,35 @@ const handleBook = async (e) => {
     </div>
   )
 
+  // Confirmation step
   if (step === 'confirmed') return (
     <div className="booking-layout">
       <div className="booking-card confirmation-card">
         <div className="check-icon">✓</div>
+
         <h2>You're booked!</h2>
-        <p className="text-muted mt-2">A confirmation email has been sent to <strong>{booking?.invitee_email}</strong></p>
-        <div className="card" style={{marginTop: '1.5rem', textAlign: 'left', display: 'inline-block', minWidth: 280}}>
-          <p><strong>{event.name}</strong></p>
-          <p className="text-sm text-muted mt-1">📅 {selectedDate?.toLocaleDateString('en-US', {weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'})}</p>
-          <p className="text-sm text-muted">⏰ {formatTime(booking?.start_time)} – {formatTime(booking?.end_time)}</p>
+
+        <p className="text-muted mt-2">
+          A confirmation email has been sent to{" "}
+          <strong>{booking?.invitee_email || form.email}</strong>
+        </p>
+
+        <div className="card" style={{ marginTop: '1.5rem' }}>
+          <p><strong>{event?.name}</strong></p>
+
+          <p className="text-sm text-muted mt-1">
+            📅 {selectedDate?.toLocaleDateString()}
+          </p>
+
+          <p className="text-sm text-muted">
+            ⏰ {selectedSlot?.start_time}
+          </p>
         </div>
       </div>
     </div>
   )
 
+  // Form step
   if (step === 'form') return (
     <div className="booking-layout">
       <div className="booking-card" style={{maxWidth: 520}}>
@@ -218,7 +236,7 @@ const handleBook = async (e) => {
     </div>
   )
 
-  // Calendar + Slots view
+  // Calendar + Slots view (default)
   return (
     <div className="booking-layout">
       <div className="booking-card">
